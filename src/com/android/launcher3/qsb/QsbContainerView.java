@@ -75,6 +75,9 @@ public class QsbContainerView extends FrameLayout {
             if (componentName != null) {
                 providerPkg = searchManager.getGlobalSearchActivity().getPackageName();
             }
+            if (providerPkg == null && Utilities.isGSAEnabled(context)) {
+                providerPkg = Utilities.GSA_PACKAGE;
+            }
         }
         return providerPkg;
     }
@@ -286,7 +289,7 @@ public class QsbContainerView extends FrameLayout {
         }
 
         public boolean isQsbEnabled() {
-            return FeatureFlags.QSB_ON_FIRST_SCREEN;
+            return false;
         }
 
         protected Bundle createBindOptions() {

@@ -27,6 +27,7 @@ import static com.android.launcher3.folder.ClippedFolderIconLayoutRule.ICON_OVER
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Path;
@@ -46,11 +47,15 @@ import com.android.launcher3.util.DisplayController;
 import com.android.launcher3.util.DisplayController.Info;
 import com.android.launcher3.util.WindowBounds;
 
+import lineageos.providers.LineageSettings;
+
 import java.io.PrintWriter;
 import java.util.List;
 
 @SuppressLint("NewApi")
 public class DeviceProfile {
+
+    public static final String KEY_ROW_HEIGHT = "pref_row_height";
 
     private static final int DEFAULT_DOT_SIZE = 100;
     // Ratio of empty space, qsb should take up to appear visually centered.
@@ -190,6 +195,8 @@ public class DeviceProfile {
     public int allAppsLeftRightMargin;
     public final int numShownAllAppsColumns;
     public float allAppsIconTextSizePx;
+    private float allAppsCellHeightMultiplier;
+    private boolean allAppsIconText;
 
     // Overview
     public int overviewTaskMarginPx;
@@ -255,13 +262,17 @@ public class DeviceProfile {
         this.rotationHint = windowBounds.rotationHint;
         mInsets.set(windowBounds.insets);
 
+        SharedPreferences prefs = Utilities.getPrefs(context);
+
         isScalableGrid = inv.isScalable && !isVerticalBarLayout() && !isMultiWindowMode;
         // Determine device posture.
         mInfo = info;
         isTablet = info.isTablet(windowBounds);
         isPhone = !isTablet;
         isTwoPanels = isTablet && useTwoPanels;
-        isTaskbarPresent = isTablet && ApiWrapper.TASKBAR_DRAWN_IN_PROCESS;
+        boolean isTaskBarEnabled = LineageSettings.System.getInt(context.getContentResolver(),
+                LineageSettings.System.ENABLE_TASKBAR, isTablet ? 1 : 0) == 1;
+        isTaskbarPresent = isTaskBarEnabled && ApiWrapper.TASKBAR_DRAWN_IN_PROCESS;
 
         // Some more constants.
         context = getContext(context, info, isVerticalBarLayout() || (isTablet && isLandscape)
@@ -299,6 +310,10 @@ public class DeviceProfile {
             taskbarSize = res.getDimensionPixelSize(R.dimen.taskbar_size);
             stashedTaskbarSize = res.getDimensionPixelSize(R.dimen.taskbar_stashed_size);
         }
+
+        allAppsCellHeightMultiplier =
+                    (float) prefs.getInt(KEY_ROW_HEIGHT, 100) / 100F;
+        allAppsIconText = prefs.getBoolean(InvariantDeviceProfile.KEY_SHOW_DRAWER_LABELS, true);
 
         edgeMarginPx = res.getDimensionPixelSize(R.dimen.dynamic_grid_edge_margin);
 
@@ -381,15 +396,19 @@ public class DeviceProfile {
                 isTwoPanels ? inv.numDatabaseAllAppsColumns : inv.numAllAppsColumns;
         hotseatBarSizeExtraSpacePx = 0;
         hotseatBarTopPaddingPx =
-                res.getDimensionPixelSize(R.dimen.dynamic_grid_hotseat_top_padding);
+                res.getDimensionPixelSize(Utilities.showQSB(context)
+                        ? R.dimen.dynamic_grid_hotseat_top_padding_widget
+                        : R.dimen.dynamic_grid_hotseat_top_padding);
         if (isQsbInline) {
             hotseatBarBottomPaddingPx = res.getDimensionPixelSize(R.dimen.inline_qsb_bottom_margin);
         } else {
-            hotseatBarBottomPaddingPx = (isTallDevice ? res.getDimensionPixelSize(
-                    R.dimen.dynamic_grid_hotseat_bottom_tall_padding)
-                    : res.getDimensionPixelSize(
-                            R.dimen.dynamic_grid_hotseat_bottom_non_tall_padding))
-                    + res.getDimensionPixelSize(R.dimen.dynamic_grid_hotseat_bottom_padding);
+            hotseatBarBottomPaddingPx = (isTallDevice ? 0
+                : res.getDimensionPixelSize(Utilities.showQSB(context)
+                        ? R.dimen.dynamic_grid_hotseat_bottom_non_tall_padding_widget
+                        : R.dimen.dynamic_grid_hotseat_bottom_non_tall_padding))
+                + res.getDimensionPixelSize(Utilities.showQSB(context)
+                        ? R.dimen.dynamic_grid_hotseat_bottom_padding_widget
+                        : R.dimen.dynamic_grid_hotseat_bottom_padding);
         }
 
         springLoadedHotseatBarTopMarginPx = res.getDimensionPixelSize(
@@ -399,7 +418,9 @@ public class DeviceProfile {
         // Add a bit of space between nav bar and hotseat in vertical bar layout.
         hotseatBarSidePaddingStartPx = isVerticalBarLayout() ? workspacePageIndicatorHeight : 0;
         hotseatExtraVerticalSize =
-                res.getDimensionPixelSize(R.dimen.dynamic_grid_hotseat_extra_vertical_size);
+                res.getDimensionPixelSize(Utilities.showQSB(context)
+                        ? R.dimen.dynamic_grid_hotseat_extra_vertical_size_widget
+                        : R.dimen.dynamic_grid_hotseat_extra_vertical_size);
         updateHotseatIconSize(pxFromDp(inv.iconSize[INDEX_DEFAULT], mMetrics));
 
         qsbBottomMarginOriginalPx = isScalableGrid
@@ -448,40 +469,7 @@ public class DeviceProfile {
             workspaceBottomPadding = Math.round(paddingWorkspaceBottom * cellScaleToFit);
             extraHotseatBottomPadding = Math.round(paddingHotseatBottom * cellScaleToFit);
 
-            hotseatBarSizePx += extraHotseatBottomPadding;
-
             qsbBottomMarginPx = Math.round(qsbBottomMarginOriginalPx * cellScaleToFit);
-        } else if (!isVerticalBarLayout() && isPhone && isTallDevice) {
-            // We increase the hotseat size when there is extra space.
-
-            if (Float.compare(aspectRatio, TALLER_DEVICE_ASPECT_RATIO_THRESHOLD) >= 0
-                    && extraSpace >= Utilities.dpToPx(TALL_DEVICE_EXTRA_SPACE_THRESHOLD_DP)) {
-                // For taller devices, we will take a piece of the extra space from each row,
-                // and add it to the space above and below the hotseat.
-
-                // For devices with more extra space, we take a larger piece from each cell.
-                int piece = extraSpace < Utilities.dpToPx(TALL_DEVICE_MORE_EXTRA_SPACE_THRESHOLD_DP)
-                        ? 7 : 5;
-
-                int extraSpace = ((getCellSize().y - iconSizePx - iconDrawablePaddingPx * 2)
-                        * inv.numRows) / piece;
-
-                workspaceTopPadding = extraSpace / 8;
-                int halfLeftOver = (extraSpace - workspaceTopPadding) / 2;
-                hotseatBarTopPaddingPx += halfLeftOver;
-                hotseatBarSizeExtraSpacePx = halfLeftOver;
-            } else {
-                // ie. For a display with a large aspect ratio, we can keep the icons on the
-                // workspace in portrait mode closer together by adding more height to the hotseat.
-                // Note: This calculation was created after noticing a pattern in the design spec.
-                hotseatBarSizeExtraSpacePx = getCellSize().y - iconSizePx
-                        - iconDrawablePaddingPx * 2 - workspacePageIndicatorHeight;
-            }
-
-            updateHotseatIconSize(iconSizePx);
-
-            // Recalculate the available dimensions using the new hotseat size.
-            updateAvailableDimensions(res);
         }
 
         int cellLayoutPadding =
@@ -647,8 +635,16 @@ public class DeviceProfile {
     public void autoResizeAllAppsCells() {
         int textHeight = Utilities.calculateTextHeight(allAppsIconTextSizePx);
         int topBottomPadding = textHeight;
-        allAppsCellHeightPx = allAppsIconSizePx + allAppsIconDrawablePaddingPx
-                + textHeight + (topBottomPadding * 2);
+        int baseCellHeight = allAppsIconSizePx + allAppsIconDrawablePaddingPx + textHeight + (topBottomPadding * 2);
+        allAppsCellHeightPx = (int) (baseCellHeight * allAppsCellHeightMultiplier);
+        if (!allAppsIconText) {
+            int cellLayoutHorizontalPadding =
+                    (cellLayoutPaddingPx.left + cellLayoutPaddingPx.right) / 2;
+            int leftRightPadding = desiredWorkspaceHorizontalMarginPx + cellLayoutHorizontalPadding;
+            int drawerWidth = availableWidthPx - leftRightPadding * 2;
+            allAppsCellHeightPx = (int) (drawerWidth / inv.numAllAppsColumns * allAppsCellHeightMultiplier);
+            allAppsIconDrawablePaddingPx = 0;
+        }
     }
 
     private void updateAllAppsContainerWidth(Resources res) {
@@ -796,27 +792,13 @@ public class DeviceProfile {
         allAppsBorderSpacePx = new Point(
                 pxFromDp(inv.allAppsBorderSpaces[mTypeIndex].x, mMetrics, scale),
                 pxFromDp(inv.allAppsBorderSpaces[mTypeIndex].y, mMetrics, scale));
-        // AllApps cells don't have real space between cells,
-        // so we add the border space to the cell height
-        allAppsCellHeightPx = pxFromDp(inv.allAppsCellSize[mTypeIndex].y, mMetrics, scale)
-                + allAppsBorderSpacePx.y;
-        // but width is just the cell,
-        // the border is added in #updateAllAppsContainerWidth
         allAppsCellWidthPx = pxFromDp(inv.allAppsCellSize[mTypeIndex].x, mMetrics, scale);
-        if (isScalableGrid) {
-            allAppsIconSizePx =
-                    pxFromDp(inv.allAppsIconSize[mTypeIndex], mMetrics, scale);
-            allAppsIconTextSizePx =
-                    pxFromSp(inv.allAppsIconTextSize[mTypeIndex], mMetrics, scale);
-            allAppsIconDrawablePaddingPx = iconDrawablePaddingOriginalPx;
-        } else {
-            float invIconSizeDp = inv.allAppsIconSize[mTypeIndex];
-            float invIconTextSizeSp = inv.allAppsIconTextSize[mTypeIndex];
-            allAppsIconSizePx = Math.max(1, pxFromDp(invIconSizeDp, mMetrics, scale));
-            allAppsIconTextSizePx = (int) (pxFromSp(invIconTextSizeSp, mMetrics) * scale);
-            allAppsIconDrawablePaddingPx =
-                    res.getDimensionPixelSize(R.dimen.all_apps_icon_drawable_padding);
-        }
+        allAppsIconSizePx =
+                pxFromDp(inv.allAppsIconSize[mTypeIndex], mMetrics, scale);
+        allAppsIconTextSizePx =
+                pxFromSp(inv.allAppsIconTextSize[mTypeIndex], mMetrics, scale);
+        allAppsIconDrawablePaddingPx = iconDrawablePaddingOriginalPx;
+        autoResizeAllAppsCells();
 
         updateAllAppsContainerWidth(res);
         if (isVerticalBarLayout()) {

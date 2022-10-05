@@ -126,7 +126,7 @@ public class DepthController implements StateHandler<LauncherState>,
     /**
      * Blur radius when completely zoomed out, in pixels.
      */
-    private int mMaxBlurRadius;
+    private float mMaxBlurRadius;
     private boolean mCrossWindowBlursEnabled;
     private WallpaperManager mWallpaperManager;
     private SurfaceControl mSurface;
@@ -139,6 +139,9 @@ public class DepthController implements StateHandler<LauncherState>,
      * @see android.service.wallpaper.WallpaperService.Engine#onZoomChanged(float)
      */
     private float mDepth;
+
+    private boolean mRestoreDepth;
+
     /**
      * Last blur value, in pixels, that was applied.
      * For debugging purposes.
@@ -166,9 +169,22 @@ public class DepthController implements StateHandler<LauncherState>,
         mLauncher = l;
     }
 
+    public void onRestoreState(float depth) {
+        mDepth = depth;
+        onResume();
+    }
+
+    public float getCurrentDepth() {
+        return mDepth;
+    }
+
+    public void onResume() {
+        mRestoreDepth = true;
+    }
+
     private void ensureDependencies() {
         if (mWallpaperManager == null) {
-            mMaxBlurRadius = mLauncher.getResources().getInteger(R.integer.max_depth_blur_radius);
+            mMaxBlurRadius = Utilities.getBlurRadius(mLauncher);
             mWallpaperManager = mLauncher.getSystemService(WallpaperManager.class);
         }
 
@@ -179,7 +195,8 @@ public class DepthController implements StateHandler<LauncherState>,
                     // To handle the case where window token is invalid during last setDepth call.
                     IBinder windowToken = mLauncher.getRootView().getWindowToken();
                     if (windowToken != null) {
-                        mWallpaperManager.setWallpaperZoomOut(windowToken, mDepth);
+                        mWallpaperManager.setWallpaperZoomOut(windowToken,
+                            Utilities.canZoomWallpaper(mLauncher) ? mDepth : 1);
                     }
                     onAttached();
                 }
@@ -287,9 +304,10 @@ public class DepthController implements StateHandler<LauncherState>,
         // Round out the depth to dedupe frequent, non-perceptable updates
         int depthI = (int) (depth * 256);
         float depthF = depthI / 256f;
-        if (Float.compare(mDepth, depthF) == 0) {
+        if (Float.compare(mDepth, depthF) == 0 && !mRestoreDepth) {
             return;
         }
+        mRestoreDepth = false;
         dispatchTransactionSurface(depthF);
         mDepth = depthF;
     }
@@ -322,7 +340,8 @@ public class DepthController implements StateHandler<LauncherState>,
         depth = Math.max(depth, mOverlayScrollProgress);
         IBinder windowToken = mLauncher.getRootView().getWindowToken();
         if (windowToken != null) {
-            mWallpaperManager.setWallpaperZoomOut(windowToken, depth);
+            mWallpaperManager.setWallpaperZoomOut(windowToken,
+                Utilities.canZoomWallpaper(mLauncher) ? mDepth : 1);
         }
 
         if (supportsBlur) {

@@ -547,7 +547,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
      * Initializes and binds the first page
      */
     public void bindAndInitFirstWorkspaceScreen() {
-        if (!FeatureFlags.QSB_ON_FIRST_SCREEN) {
+        if (!Utilities.showQuickspace(getContext())) {
             return;
         }
 
@@ -558,7 +558,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             // In transposed layout, we add the QSB in the Grid. As workspace does not touch the
             // edges, we do not need a full width QSB.
             mQsb = LayoutInflater.from(getContext())
-                    .inflate(R.layout.search_container_workspace, firstPage, false);
+                    .inflate(R.layout.reserved_container_workspace, firstPage, false);
         }
 
         int cellVSpan = FeatureFlags.EXPANDED_SMARTSPACE.get()
@@ -566,7 +566,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
         int cellHSpan = mLauncher.getDeviceProfile().inv.numSearchContainerColumns;
         CellLayout.LayoutParams lp = new CellLayout.LayoutParams(0, 0, cellHSpan, cellVSpan);
         lp.canReorder = false;
-        if (!firstPage.addViewToCellLayout(mQsb, 0, R.id.search_container_workspace, lp, true)) {
+        if (!firstPage.addViewToCellLayout(mQsb, 0, R.id.reserved_container_workspace, lp, true)) {
             Log.e(TAG, "Failed to add to item at (0, 0) to CellLayout");
             mQsb = null;
         }
@@ -950,7 +950,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             int id = mWorkspaceScreens.keyAt(i);
             CellLayout cl = mWorkspaceScreens.valueAt(i);
             // FIRST_SCREEN_ID can never be removed.
-            if ((!FeatureFlags.QSB_ON_FIRST_SCREEN || id > FIRST_SCREEN_ID)
+            if ((!Utilities.showQuickspace(getContext()) || id > FIRST_SCREEN_ID)
                     && cl.getShortcutsAndWidgets().getChildCount() == 0) {
                 removeScreens.add(id);
             }
@@ -1327,7 +1327,9 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
             @Override
             public void run() {
                 final Point size = LauncherAppState.getIDP(getContext()).defaultWallpaperSize;
-                if (size.x != mWallpaperManager.getDesiredMinimumWidth()
+                if (!mWallpaperManager.isWallpaperSupported()) {
+                    mWallpaperManager.suggestDesiredDimensions(0, 0);
+                } else if (size.x != mWallpaperManager.getDesiredMinimumWidth()
                         || size.y != mWallpaperManager.getDesiredMinimumHeight()) {
                     mWallpaperManager.suggestDesiredDimensions(size.x, size.y);
                 }
@@ -2069,8 +2071,7 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
 
                         final LauncherAppWidgetHostView hostView = (LauncherAppWidgetHostView) cell;
                         AppWidgetProviderInfo pInfo = hostView.getAppWidgetInfo();
-                        if (pInfo != null && pInfo.resizeMode != AppWidgetProviderInfo.RESIZE_NONE
-                                && !options.isAccessibleDrag) {
+                        if (pInfo != null && !options.isAccessibleDrag) {
                             onCompleteRunnable = () -> {
                                 if (!isPageInTransition()) {
                                     AppWidgetResizeFrame.showForWidget(hostView, cellLayout);
@@ -3372,8 +3373,12 @@ public class Workspace<T extends View & PageIndicator> extends PagedView<T>
     /** Calls {@link #snapToPage(int)} on the {@link #DEFAULT_PAGE}, then requests focus on it. */
     public void moveToDefaultScreen() {
         int page = DEFAULT_PAGE;
-        if (!workspaceInModalState() && getNextPage() != page) {
-            snapToPage(page);
+        if (!workspaceInModalState()) {
+            if (getNextPage() != page) {
+                snapToPage(page);
+            } else {
+                mLauncher.getStateManager().goToState(ALL_APPS);
+            }
         }
         View child = getChildAt(page);
         if (child != null) {
