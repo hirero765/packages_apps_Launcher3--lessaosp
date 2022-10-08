@@ -319,10 +319,8 @@ public abstract class TaskViewTouchController<T extends BaseDraggingActivity>
                 upAction.recycle();
             }
         } else {
-            if (mCurrentAnimation != null) {
-                mCurrentAnimation.setPlayFraction(
-                      Utilities.boundToRange(totalDisplacement * mProgressMultiplier, 0, 1));
-            }
+            mCurrentAnimation.setPlayFraction(
+                    Utilities.boundToRange(totalDisplacement * mProgressMultiplier, 0, 1));
         }
 
         return true;

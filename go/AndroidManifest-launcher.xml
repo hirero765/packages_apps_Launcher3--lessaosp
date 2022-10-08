@@ -31,7 +31,7 @@
         android:fullBackupOnly="true"
         android:fullBackupContent="@xml/backupscheme"
         android:hardwareAccelerated="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher_home"
         android:label="@string/derived_app_name"
         android:theme="@style/AppTheme"
         android:largeHeap="@bool/config_largeHeap"
@@ -64,9 +64,6 @@
             </intent-filter>
             <meta-data
                 android:name="com.android.launcher3.grid.control"
-                android:value="${packageName}.grid_control" />
-            <meta-data
-                android:name="com.android.launcher3.themedicon.option"
                 android:value="${packageName}.grid_control" />
         </activity>
 

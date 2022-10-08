@@ -236,7 +236,7 @@ public final class LauncherActivityInterface extends
                     @Override
                     public void onStateTransitionComplete(LauncherState toState) {
                         // Are we going from Recents to Workspace?
-                        if (toState == LauncherState.NORMAL || toState == LauncherState.ALL_APPS) {
+                        if (toState == LauncherState.NORMAL) {
                             exitRunnable.run();
                             notifyRecentsOfOrientation(deviceState);
                             stateManager.removeStateListener(this);
@@ -247,11 +247,7 @@ public final class LauncherActivityInterface extends
 
     private void notifyRecentsOfOrientation(RotationTouchHelper rotationTouchHelper) {
         // reset layout on swipe to home
-        Launcher launcher = getCreatedActivity();
-        if (launcher == null) {
-            return;
-        }
-        RecentsView recentsView = launcher.getOverviewPanel();
+        RecentsView recentsView = getCreatedActivity().getOverviewPanel();
         recentsView.setLayoutRotation(rotationTouchHelper.getCurrentActiveRotation(),
                 rotationTouchHelper.getDisplayRotation());
     }

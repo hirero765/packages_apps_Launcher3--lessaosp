@@ -40,8 +40,6 @@ import com.android.launcher3.icons.IconCache;
 import com.android.launcher3.icons.IconProvider;
 import com.android.launcher3.icons.LauncherIconProvider;
 import com.android.launcher3.icons.LauncherIcons;
-import com.android.launcher3.lineage.trust.HiddenAppsFilter;
-import com.android.launcher3.lineage.trust.db.TrustDatabaseHelper;
 import com.android.launcher3.notification.NotificationListener;
 import com.android.launcher3.pm.InstallSessionHelper;
 import com.android.launcher3.pm.InstallSessionTracker;
@@ -70,9 +68,6 @@ public class LauncherAppState implements SafeCloseable {
     private final IconCache mIconCache;
     private final InvariantDeviceProfile mInvariantDeviceProfile;
     private final RunnableList mOnTerminateCallback = new RunnableList();
-
-    private HomeKeyWatcher mHomeKeyListener = null;
-    private boolean mNeedsRestart;
 
     public static LauncherAppState getInstance(final Context context) {
         return INSTANCE.get(context);
@@ -141,31 +136,6 @@ public class LauncherAppState implements SafeCloseable {
         onNotificationSettingsChanged(settingsCache.getValue(NOTIFICATION_BADGING_URI));
         mOnTerminateCallback.add(() ->
                 settingsCache.unregister(NOTIFICATION_BADGING_URI, notificationLister));
-
-        mHomeKeyListener = new HomeKeyWatcher(mContext);
-    }
-
-    public void setNeedsRestart() {
-        if (mNeedsRestart) {
-            // another pref change already called a restart
-            return;
-        }
-        mNeedsRestart = true;
-        mHomeKeyListener.startWatch();
-        mHomeKeyListener.setOnHomePressedListener(() -> {
-            mHomeKeyListener.stopWatch();
-            Utilities.restart(mContext);
-            // we're killing the whole process so no need to set mNeedsRestart to false again
-        });
-    }
-
-    public void checkIfRestartNeeded() {
-        // we destroyed Settings activity with the back button
-        // so we force a restart now if needed without waiting for home button press
-        if (mNeedsRestart) {
-            mHomeKeyListener.stopWatch();
-            Utilities.restart(mContext);
-        }
     }
 
     public LauncherAppState(Context context, @Nullable String iconCacheFileName) {
@@ -175,7 +145,7 @@ public class LauncherAppState implements SafeCloseable {
         mIconProvider = new LauncherIconProvider(context);
         mIconCache = new IconCache(mContext, mInvariantDeviceProfile,
                 iconCacheFileName, mIconProvider);
-        mModel = new LauncherModel(context, this, mIconCache, new HiddenAppsFilter(mContext),
+        mModel = new LauncherModel(context, this, mIconCache, new AppFilter(mContext),
                 iconCacheFileName != null);
         mOnTerminateCallback.add(mIconCache::close);
     }
@@ -219,10 +189,6 @@ public class LauncherAppState implements SafeCloseable {
 
     public InvariantDeviceProfile getInvariantDeviceProfile() {
         return mInvariantDeviceProfile;
-    }
-
-    public TrustDatabaseHelper getTrustData() {
-        return TrustDatabaseHelper.getInstance(this.mContext);
     }
 
     /**

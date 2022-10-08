@@ -185,11 +185,11 @@ public class OptionsPopupView extends ArrowPopup<Launcher>
         int resDrawable = Utilities.existsStyleWallpapers(launcher) ?
                 R.drawable.ic_palette : R.drawable.ic_wallpaper;
         options.add(new OptionItem(launcher,
-                R.string.settings_title,
-                R.drawable.ic_setting,
-                LAUNCHER_SETTINGS_BUTTON_TAP_OR_LONGPRESS,
-                OptionsPopupView::startSettings));
-        if (!WidgetsModel.GO_DISABLE_WIDGETS && Utilities.isWorkspaceEditAllowed(launcher)) {
+                resString,
+                resDrawable,
+                IGNORE,
+                OptionsPopupView::startWallpaperPicker));
+        if (!WidgetsModel.GO_DISABLE_WIDGETS) {
             options.add(new OptionItem(launcher,
                     R.string.widget_button_text,
                     R.drawable.ic_widget,
@@ -197,10 +197,10 @@ public class OptionsPopupView extends ArrowPopup<Launcher>
                     OptionsPopupView::onWidgetsClicked));
         }
         options.add(new OptionItem(launcher,
-                resString,
-                resDrawable,
-                IGNORE,
-                OptionsPopupView::startWallpaperPicker));
+                R.string.settings_button_text,
+                R.drawable.ic_setting,
+                LAUNCHER_SETTINGS_BUTTON_TAP_OR_LONGPRESS,
+                OptionsPopupView::startSettings));
         return options;
     }
 

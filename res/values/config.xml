@@ -16,13 +16,12 @@
 <resources>
     <!-- Miscellaneous -->
     <bool name="config_largeHeap">false</bool>
-    <bool name="allow_rotation">false</bool>
 
     <integer name="extracted_color_gradient_alpha">153</integer>
 
     <!-- A string pointer to the original app name string. This allows derived projects to
      easily override the app name without providing all translations -->
-    <string name="derived_app_name" translatable="false">@string/crdroid_app_name</string>
+    <string name="derived_app_name" translatable="false">@string/app_name</string>
 
     <!-- String representing the intent for search on the apps market. To specify a query, add
     q=<query> to the data to the intent -->
@@ -51,7 +50,7 @@
     <string name="popup_container_iterate_children" translatable="false">popup_container_iterate_children</string>
 
     <!-- config used to determine if header protection is supported in AllApps -->
-    <bool name="config_header_protection_supported">true</bool>
+    <bool name="config_header_protection_supported">false</bool>
 
     <!-- Workspace -->
     <!-- The duration (in ms) of the fade animation on the object outlines, used when
@@ -103,7 +102,7 @@
     <item type="id" name="menu_apply_flags" />
 
     <!-- Default packages -->
-    <string name="wallpaper_picker_package" translatable="false">com.android.wallpaper</string>
+    <string name="wallpaper_picker_package" translatable="false"></string>
     <string name="custom_activity_picker" translatable="false">
         com.android.customization.picker.CustomizationPickerActivity</string>
     <string name="local_colors_extraction_class" translatable="false"></string>

@@ -29,7 +29,6 @@ import android.graphics.Insets;
 import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.os.Build;
-import android.provider.Settings;
 import android.view.View;
 import android.widget.Toast;
 
@@ -137,10 +136,9 @@ public class TaskOverlayFactory implements ResourceBasedOverride {
         ActivityManager activityManager =
                 (ActivityManager) taskView.getContext().getSystemService(Context.ACTIVITY_SERVICE);
         boolean isLockTaskMode = activityManager.isInLockTaskMode();
-        boolean windowAnimationsDisabled = areWindowAnimationsDisabled(taskView.getContext());
 
         if (taskViewHasMultipleTasks || notEnoughTasksToSplit || isLockTaskMode ||
-                (isFocusedTask && isTaskInExpectedScrollPosition) || windowAnimationsDisabled) {
+                (isFocusedTask && isTaskInExpectedScrollPosition)) {
             return;
         }
 
@@ -149,11 +147,6 @@ public class TaskOverlayFactory implements ResourceBasedOverride {
         for (SplitPositionOption option : positions) {
             outShortcuts.add(new SplitSelectSystemShortcut(activity, taskView, option));
         }
-    }
-
-    private static boolean areWindowAnimationsDisabled(Context context) {
-        return Settings.Global.getFloat(context.getContentResolver(),
-                Settings.Global.WINDOW_ANIMATION_SCALE, 1f) == 0f;
     }
 
     public TaskOverlay createOverlay(TaskThumbnailView thumbnailView) {
@@ -232,11 +225,9 @@ public class TaskOverlayFactory implements ResourceBasedOverride {
         public void endLiveTileMode(@NonNull Runnable callback) {
             if (ENABLE_QUICKSTEP_LIVE_TILE.get()) {
                 RecentsView recentsView = mThumbnailView.getTaskView().getRecentsView();
-                if (recentsView != null) {
-                    recentsView.switchToScreenshot(
-                            () -> recentsView.finishRecentsAnimation(true /* toRecents */,
-                                    false /* shouldPip */, callback));
-                }
+                recentsView.switchToScreenshot(
+                        () -> recentsView.finishRecentsAnimation(true /* toRecents */,
+                                false /* shouldPip */, callback));
             } else {
                 callback.run();
             }
@@ -258,11 +249,6 @@ public class TaskOverlayFactory implements ResourceBasedOverride {
         private void enterSplitSelect() {
             RecentsView overviewPanel = mThumbnailView.getTaskView().getRecentsView();
             overviewPanel.initiateSplitSelect(mThumbnailView.getTaskView());
-        }
-
-        private void clearAllTasks() {
-            final RecentsView recentsView = mThumbnailView.getTaskView().getRecentsView();
-            recentsView.dismissAllTasks();
         }
 
         /**
@@ -372,19 +358,12 @@ public class TaskOverlayFactory implements ResourceBasedOverride {
             }
 
             @SuppressLint("NewApi")
-            @Override
             public void onScreenshot() {
                 endLiveTileMode(() -> saveScreenshot(mTask));
             }
 
-            @Override
             public void onSplit() {
                 endLiveTileMode(TaskOverlay.this::enterSplitSelect);
-            }
-
-            @Override
-            public void onClearAllTasksRequested() {
-                endLiveTileMode(TaskOverlay.this::clearAllTasks);
             }
         }
     }
@@ -399,7 +378,5 @@ public class TaskOverlayFactory implements ResourceBasedOverride {
 
         /** User wants to start split screen with current app. */
         void onSplit();
-
-        void onClearAllTasksRequested();
     }
 }
